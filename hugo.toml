@@ -1,0 +1,4 @@
+baseURL = 'https://rencxy.cloud/'
+languageCode = 'en-us'
+title = 'Ren'
+theme = 'ananke'
