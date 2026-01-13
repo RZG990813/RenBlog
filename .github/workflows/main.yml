@@ -1,5 +1,4 @@
-name: github pages
-
+name: hugo打包
 on:
   push:
     branches:
