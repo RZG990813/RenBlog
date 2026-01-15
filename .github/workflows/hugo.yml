@@ -60,7 +60,7 @@ jobs:
             --gc \
             --minify
       - name: 上传构建产物
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./public
 
