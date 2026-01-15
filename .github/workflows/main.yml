@@ -4,10 +4,13 @@ name: hugo打包
 
 # 触发条件
 on:
-  # 当推送到source分支时触发
+  # 当推送到main分支时触发，但忽略public目录的变更
   push:
     branches:
-      - source
+      - main
+    paths:
+      - '!**/public/**'
+   #   - '!.github/workflows/main.yml'
   # 支持手动触发（通过repository_dispatch API）
   repository_dispatch:
     types:
