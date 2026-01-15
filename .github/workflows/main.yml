@@ -1,10 +1,11 @@
 name: hugo打包
 on:
-  # workflow_dispatch: 
   push:
     branches:
-      - main
-  # 允许您手动从“Actions”标签运行此工作流程
+      - source
+  repository_dispatch:
+    types:
+      - deploy
   workflow_dispatch:
 # 仅允许一个并发部署，跳过在进行中的运行与最新排队的运行之间排队的运行。
 # 但是，请不要取消进行中的运行，因为我们希望这些生产部署能够完成。
@@ -22,33 +23,38 @@ jobs:
     env:
       HUGO_VERSION: 0.153.4
     steps:
-      - name: 安装Hugo CLI
-        run: |
-          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb \
-          && sudo dpkg -i ${{ runner.temp }}/hugo.deb  
       - name: 检出
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: 安装Node.js依赖
-        run: "[[ -f package-lock.json || -f npm-shrinkwrap.json ]] && npm ci || true"
+      - name: 安装Hugo CLI
+        run: |
+          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb \
+          && sudo dpkg -i ${{ runner.temp }}/hugo.deb
       - name: 使用Hugo构建
         env:
-          # 为了与Hugo模块的最大向后兼容性
           HUGO_ENVIRONMENT: production
           HUGO_ENV: production
         run: |
-          hugo \
-            --gc \
-            --minify   
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{secrets.GH_PAGE_ACTION_TOKEN}}
-          publish_dir: ./public
-          commit_message: ${{github.event.head_commit.message }}
-      - name: 上传构建产物
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./public
+          hugo --gc --minify
+      - name: 保存构建结果
+        run: |
+          mkdir -p ${{ runner.temp }}/hugo_build
+          cp -r public ${{ runner.temp }}/hugo_build/
+      - name: 配置Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: 切换到main分支
+        run: git checkout main
+      - name: 删除旧的public目录
+        run: rm -rf public
+      - name: 复制新的public目录
+        run: cp -r ${{ runner.temp }}/hugo_build/public .
+      - name: 提交public目录到main分支
+        run: |
+          git add public
+          git commit -m "Update public directory - $(date '+%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push origin main
+
