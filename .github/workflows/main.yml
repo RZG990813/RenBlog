@@ -1,57 +1,96 @@
+# Hugo静态网站构建和部署工作流
+# 功能：自动构建Hugo站点并将public目录部署到main分支和GitHub Pages
 name: hugo打包
+
+# 触发条件
 on:
+  # 当推送到source分支时触发
   push:
     branches:
       - source
+  # 支持手动触发（通过repository_dispatch API）
   repository_dispatch:
     types:
       - deploy
+  # 允许在GitHub Actions界面手动运行
   workflow_dispatch:
+
+# 并发控制：防止多个工作流同时运行导致冲突
 # 仅允许一个并发部署，跳过在进行中的运行与最新排队的运行之间排队的运行。
 # 但是，请不要取消进行中的运行，因为我们希望这些生产部署能够完成。
 concurrency:
   group: "pages"
   cancel-in-progress: false
-# 默认使用bash
+
+# 默认使用bash作为shell
 defaults:
   run:
     shell: bash
 
 jobs:
+  # 主要构建和部署任务
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # 使用最新的Ubuntu运行环境
     env:
-      HUGO_VERSION: 0.153.4
+      HUGO_VERSION: 0.153.4  # 指定Hugo版本，确保构建一致性
     steps:
+      # 步骤1：检出代码
+      # 从source分支检出代码，包含子模块，获取完整历史记录
       - name: 检出
         uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
+          submodules: recursive  # 递归检出子模块
+          fetch-depth: 0  # 获取完整git历史，用于Hugo的git信息
+
+      # 步骤2：安装Hugo CLI
+      # 下载指定版本的Hugo Extended版本并安装
       - name: 安装Hugo CLI
         run: |
           wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb \
           && sudo dpkg -i ${{ runner.temp }}/hugo.deb
+
+      # 步骤3：使用Hugo构建静态网站
+      # 在生产环境下构建，启用垃圾回收和代码压缩
       - name: 使用Hugo构建
         env:
-          HUGO_ENVIRONMENT: production
-          HUGO_ENV: production
+          HUGO_ENVIRONMENT: production  # 设置Hugo环境为生产模式
+          HUGO_ENV: production  # 兼容性设置
         run: |
           hugo --gc --minify
+          # --gc: 启用垃圾回收，优化内存使用
+          # --minify: 压缩HTML、CSS、JS等输出文件
+
+      # 步骤4：保存构建结果
+      # 将构建产物复制到临时目录，避免切换分支时丢失
       - name: 保存构建结果
         run: |
           mkdir -p ${{ runner.temp }}/hugo_build
           cp -r public ${{ runner.temp }}/hugo_build/
+
+      # 步骤5：配置Git用户信息
+      # 设置提交者信息，用于后续的git提交操作
       - name: 配置Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      # 步骤6：切换到main分支
+      # 切换到main分支以更新public目录
       - name: 切换到main分支
         run: git checkout main
+
+      # 步骤7：删除旧的public目录
+      # 清理之前的构建产物，确保使用最新的构建结果
       - name: 删除旧的public目录
         run: rm -rf public
+
+      # 步骤8：复制新的public目录
+      # 将之前保存的构建结果复制到当前分支
       - name: 复制新的public目录
         run: cp -r ${{ runner.temp }}/hugo_build/public .
+
+      # 步骤9：提交public目录到main分支
+      # 将构建产物提交到main分支，实现本地部署
       - name: 提交public目录到main分支
         run: |
           git add public
