@@ -48,3 +48,7 @@ jobs:
           github_token: ${{secrets.GH_PAGE_ACTION_TOKEN}}
           publish_dir: ./public
           commit_message: ${{github.event.head_commit.message }}
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: ./public
